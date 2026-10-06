@@ -1,0 +1,80 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:vault_nama/app.dart';
+import 'package:vault_nama/data/asset_repository.dart';
+import 'package:vault_nama/security/pin_service.dart';
+
+import 'fakes.dart';
+
+void main() {
+  late MemoryKeyValueStore store;
+
+  Future<AssetRepository> openRepository() async {
+    sqfliteFfiInit();
+    return AssetRepository(
+      await databaseFactoryFfi.openDatabase(
+        inMemoryDatabasePath,
+        options: OpenDatabaseOptions(
+          version: schemaVersion,
+          onCreate: createSchema,
+        ),
+      ),
+    );
+  }
+
+  Widget app() => VaultNamaApp(
+    pinService: PinService(store, iterations: 10),
+    biometrics: FakeBiometrics(),
+    openRepository: openRepository,
+  );
+
+  Future<void> enterPin(WidgetTester tester, String pin, String button) async {
+    await tester.enterText(find.byKey(const Key('pin-field')), pin);
+    await tester.tap(find.text(button));
+    // PIN hashing and the database do real async work, and the busy spinner
+    // never settles, so pump until the work finishes.
+    for (var i = 0; i < 100; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+      if (find.byType(CircularProgressIndicator).evaluate().isEmpty) break;
+    }
+    await tester.pumpAndSettle();
+  }
+
+  setUp(() => store = MemoryKeyValueStore());
+
+  testWidgets('first launch sets a PIN, then locks and unlocks', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.text('Choose a PIN'), findsOneWidget);
+
+    await enterPin(tester, '2468', 'Next');
+    expect(find.text('Confirm your PIN'), findsOneWidget);
+    await enterPin(tester, '2468', 'Set PIN');
+    expect(find.textContaining('No assets yet'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Lock'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vault Nama is locked'), findsOneWidget);
+
+    await enterPin(tester, '0000', 'Unlock');
+    expect(find.text('Wrong PIN'), findsOneWidget);
+
+    await enterPin(tester, '2468', 'Unlock');
+    expect(find.textContaining('No assets yet'), findsOneWidget);
+  });
+
+  testWidgets('mismatched confirmation starts PIN setup again', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await enterPin(tester, '2468', 'Next');
+    await enterPin(tester, '1357', 'Set PIN');
+    expect(find.text('Choose a PIN'), findsOneWidget);
+    expect(find.textContaining("PINs didn't match"), findsOneWidget);
+  });
+}
