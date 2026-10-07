@@ -18,7 +18,7 @@ Nothing leaves the phone. There is no server, account or network access.
 ## Roadmap
 
 1. App setup, encrypted storage and app lock ✅
-2. Add, edit and list each asset type with its own fields
+2. Add, edit and list each asset type with its own fields ✅
 3. Dashboard of totals by category, with reminders for premiums and FD maturity
 4. Encrypted backup file export and restore
 

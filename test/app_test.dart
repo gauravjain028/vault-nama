@@ -44,6 +44,23 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> settle(WidgetTester tester) async {
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> setUpPin(WidgetTester tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await enterPin(tester, '2468', 'Next');
+    await enterPin(tester, '2468', 'Set PIN');
+  }
+
   setUp(() => store = MemoryKeyValueStore());
 
   testWidgets('first launch sets a PIN, then locks and unlocks', (
@@ -76,5 +93,83 @@ void main() {
     await enterPin(tester, '1357', 'Set PIN');
     expect(find.text('Choose a PIN'), findsOneWidget);
     expect(find.textContaining("PINs didn't match"), findsOneWidget);
+  });
+
+  testWidgets('adds, edits and deletes a fixed deposit', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.5;
+    addTearDown(tester.view.reset);
+    await setUpPin(tester);
+
+    await tester.tap(find.text('Add asset'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fixed deposit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add Fixed deposit'), findsOneWidget);
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Required'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('asset-name')), 'SBI FD');
+    await tester.enterText(find.byKey(const Key('asset-value')), '1,50,000');
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const Key('field-bank')),
+        matching: find.byType(TextFormField),
+      ),
+      'SBI',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const Key('field-interestRate')),
+        matching: find.byType(TextFormField),
+      ),
+      '7.1',
+    );
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+
+    expect(find.text('SBI FD'), findsOneWidget);
+    expect(find.text('₹1,50,000.00'), findsOneWidget);
+    expect(find.text('SBI · 7.1%'), findsOneWidget);
+
+    await tester.tap(find.text('SBI FD'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit Fixed deposit'), findsOneWidget);
+    expect(find.text('7.1'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('asset-name')), 'SBI FD 2');
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    expect(find.text('SBI FD 2'), findsOneWidget);
+
+    await tester.tap(find.text('SBI FD 2'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await settle(tester);
+    expect(find.textContaining('No assets yet'), findsOneWidget);
+  });
+
+  testWidgets('locking closes an open form', (tester) async {
+    await setUpPin(tester);
+    await tester.tap(find.text('Add asset'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gold'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add Gold'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    // Frames only render once the app is back in the foreground.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vault Nama is locked'), findsOneWidget);
+    expect(find.text('Add Gold'), findsNothing);
   });
 }

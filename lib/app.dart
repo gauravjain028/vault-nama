@@ -32,6 +32,7 @@ class _VaultNamaAppState extends State<VaultNamaApp>
   _LockState _state = _LockState.loading;
   bool _biometricsAvailable = false;
   AssetRepository? _repository;
+  final _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -63,7 +64,12 @@ class _VaultNamaAppState extends State<VaultNamaApp>
     setState(() => _state = _LockState.unlocked);
   }
 
-  void _lock() => setState(() => _state = _LockState.locked);
+  void _lock() {
+    // Close any open form, dialog or picker so nothing stays above the lock
+    // screen.
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    setState(() => _state = _LockState.locked);
+  }
 
   Future<void> _unlockWithBiometrics() async {
     if (await widget.biometrics.authenticate()) await _unlock();
@@ -79,6 +85,7 @@ class _VaultNamaAppState extends State<VaultNamaApp>
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Vault Nama',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
