@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'data/asset_repository.dart';
+import 'reminders/reminders.dart';
 import 'security/biometrics.dart';
 import 'security/database_key.dart';
 import 'security/key_value_store.dart';
@@ -14,6 +15,7 @@ void main() {
     VaultNamaApp(
       pinService: PinService(store),
       biometrics: Biometrics(),
+      reminders: LocalNotificationReminders(),
       openRepository: () async => AssetRepository(
         await openEncryptedDatabase(await loadOrCreateDatabaseKey(store)),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'data/asset_repository.dart';
+import 'reminders/reminders.dart';
 import 'screens/home_screen.dart';
 import 'screens/lock_screen.dart';
 import 'screens/pin_setup_screen.dart';
@@ -14,11 +15,13 @@ class VaultNamaApp extends StatefulWidget {
     super.key,
     required this.pinService,
     required this.biometrics,
+    required this.reminders,
     required this.openRepository,
   });
 
   final PinService pinService;
   final Biometrics biometrics;
+  final Reminders reminders;
 
   /// Opens the encrypted database; called only after the user unlocks.
   final Future<AssetRepository> Function() openRepository;
@@ -116,6 +119,7 @@ class _VaultNamaAppState extends State<VaultNamaApp>
         ),
         _LockState.unlocked => HomeScreen(
           repository: _repository!,
+          reminders: widget.reminders,
           onLock: _lock,
         ),
       },

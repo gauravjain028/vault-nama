@@ -1,3 +1,5 @@
+import 'package:vault_nama/data/asset.dart';
+import 'package:vault_nama/reminders/reminders.dart';
 import 'package:vault_nama/security/biometrics.dart';
 import 'package:vault_nama/security/key_value_store.dart';
 
@@ -25,4 +27,11 @@ class FakeBiometrics implements Biometrics {
 
   @override
   Future<bool> authenticate() async => succeeds;
+}
+
+class FakeReminders implements Reminders {
+  List<Asset>? lastScheduled;
+
+  @override
+  Future<void> reschedule(List<Asset> assets) async => lastScheduled = assets;
 }

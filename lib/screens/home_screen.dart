@@ -3,14 +3,24 @@ import 'package:intl/intl.dart';
 
 import '../data/asset.dart';
 import '../data/asset_repository.dart';
+import '../data/summary.dart';
+import '../reminders/due_dates.dart';
+import '../reminders/reminders.dart';
 import '../util/money.dart';
 import 'asset_form_screen.dart';
+import 'dashboard.dart';
 
 /// Lists saved assets grouped by type, with add and edit.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.repository, required this.onLock});
+  const HomeScreen({
+    super.key,
+    required this.repository,
+    required this.reminders,
+    required this.onLock,
+  });
 
   final AssetRepository repository;
+  final Reminders reminders;
   final VoidCallback onLock;
 
   @override
@@ -18,11 +28,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late Future<List<Asset>> _assets = widget.repository.all();
+  late Future<List<Asset>> _assets = _load();
+
+  /// Loads assets and brings scheduled reminders in line with them.
+  Future<List<Asset>> _load() async {
+    final assets = await widget.repository.all();
+    widget.reminders.reschedule(assets);
+    return assets;
+  }
 
   void _reload() {
     setState(() {
-      _assets = widget.repository.all();
+      _assets = _load();
     });
   }
 
@@ -101,9 +118,21 @@ class _HomeScreenState extends State<HomeScreen> {
           for (final asset in assets) {
             byType.putIfAbsent(asset.type, () => []).add(asset);
           }
+          final today = DateTime.now();
+          final comingUp = dueEvents(
+            assets,
+            today: today,
+            until: today.add(const Duration(days: 60)),
+          );
           return ListView(
             padding: const EdgeInsets.only(bottom: 88),
             children: [
+              SummaryCard(summary: AssetSummary(assets)),
+              if (comingUp.isNotEmpty)
+                ComingUpCard(
+                  events: comingUp.take(5).toList(),
+                  onTap: (asset) => _openForm(asset.type, asset),
+                ),
               for (final type in AssetType.values)
                 if (byType[type] case final group?) ...[
                   _SectionHeader(type: type),

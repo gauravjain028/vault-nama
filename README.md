@@ -14,12 +14,14 @@ Nothing leaves the phone. There is no server, account or network access.
   optional fingerprint or Face ID unlock. It locks again whenever it goes to
   the background.
 - Android cloud backup and screenshots are disabled.
+- Reminders are local notifications scheduled on the phone (a week before and
+  on the day, at 9am). Their text is hidden on a locked screen.
 
 ## Roadmap
 
 1. App setup, encrypted storage and app lock ✅
 2. Add, edit and list each asset type with its own fields ✅
-3. Dashboard of totals by category, with reminders for premiums and FD maturity
+3. Dashboard of totals by category, with reminders for premiums and FD maturity ✅
 4. Encrypted backup file export and restore
 
 ## Development

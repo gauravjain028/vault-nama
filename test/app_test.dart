@@ -9,6 +9,7 @@ import 'fakes.dart';
 
 void main() {
   late MemoryKeyValueStore store;
+  late FakeReminders reminders;
 
   Future<AssetRepository> openRepository() async {
     sqfliteFfiInit();
@@ -26,6 +27,7 @@ void main() {
   Widget app() => VaultNamaApp(
     pinService: PinService(store, iterations: 10),
     biometrics: FakeBiometrics(),
+    reminders: reminders,
     openRepository: openRepository,
   );
 
@@ -61,7 +63,10 @@ void main() {
     await enterPin(tester, '2468', 'Set PIN');
   }
 
-  setUp(() => store = MemoryKeyValueStore());
+  setUp(() {
+    store = MemoryKeyValueStore();
+    reminders = FakeReminders();
+  });
 
   testWidgets('first launch sets a PIN, then locks and unlocks', (
     tester,
@@ -131,7 +136,13 @@ void main() {
     await settle(tester);
 
     expect(find.text('SBI FD'), findsOneWidget);
-    expect(find.text('₹1,50,000.00'), findsOneWidget);
+    // In the list, the net-worth headline and the category bar.
+    expect(find.text('₹1,50,000.00'), findsNWidgets(3));
+    expect(
+      tester.widget<Text>(find.byKey(const Key('net-worth'))).data,
+      '₹1,50,000.00',
+    );
+    expect(reminders.lastScheduled?.single.name, 'SBI FD');
     expect(find.text('SBI · 7.1%'), findsOneWidget);
 
     await tester.tap(find.text('SBI FD'));
