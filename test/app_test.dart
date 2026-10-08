@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:vault_nama/app.dart';
+import 'package:vault_nama/backup/backup_codec.dart';
+import 'package:vault_nama/backup/backup_screen.dart';
+import 'package:vault_nama/data/asset.dart';
+import 'package:vault_nama/security/auto_lock.dart';
 import 'package:vault_nama/data/asset_repository.dart';
 import 'package:vault_nama/security/pin_service.dart';
 
@@ -10,10 +14,14 @@ import 'fakes.dart';
 void main() {
   late MemoryKeyValueStore store;
   late FakeReminders reminders;
+  late FakeBackupFiles backupFiles;
+  late AssetRepository repository;
+
+  var seed = <Asset>[];
 
   Future<AssetRepository> openRepository() async {
     sqfliteFfiInit();
-    return AssetRepository(
+    repository = AssetRepository(
       await databaseFactoryFfi.openDatabase(
         inMemoryDatabasePath,
         options: OpenDatabaseOptions(
@@ -22,12 +30,19 @@ void main() {
         ),
       ),
     );
+    await repository.replaceAll(seed);
+    return repository;
   }
 
   Widget app() => VaultNamaApp(
     pinService: PinService(store, iterations: 10),
     biometrics: FakeBiometrics(),
     reminders: reminders,
+    backupTools: BackupTools(
+      codec: BackupCodec(iterations: 10),
+      files: backupFiles,
+      autoLock: AutoLock(),
+    ),
     openRepository: openRepository,
   );
 
@@ -66,6 +81,8 @@ void main() {
   setUp(() {
     store = MemoryKeyValueStore();
     reminders = FakeReminders();
+    backupFiles = FakeBackupFiles();
+    seed = [];
   });
 
   testWidgets('first launch sets a PIN, then locks and unlocks', (
@@ -182,5 +199,89 @@ void main() {
 
     expect(find.text('Vault Nama is locked'), findsOneWidget);
     expect(find.text('Add Gold'), findsNothing);
+  });
+
+  testWidgets('saves a backup and restores it', (tester) async {
+    seed = [Asset(type: AssetType.gold, name: 'Coins', valuePaise: 2500000)];
+    await setUpPin(tester);
+    expect(find.text('Coins'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Backup and restore'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save a backup'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('backup-password')), 'short');
+    await tester.enterText(
+      find.byKey(const Key('backup-password-again')),
+      'short',
+    );
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.text('At least 8 characters'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('backup-password')),
+      'gold-and-fds',
+    );
+    await tester.enterText(
+      find.byKey(const Key('backup-password-again')),
+      'gold-and-fds',
+    );
+    await tester.tap(find.text('OK'));
+    await settle(tester);
+    expect(backupFiles.saved, isNotNull);
+    expect(backupFiles.savedName, endsWith('.vnbackup'));
+    expect(find.text('Backup saved with 1 asset'), findsOneWidget);
+
+    // Lose the data, then restore it.
+    await tester.runAsync(() => repository.replaceAll([]));
+
+    await tester.tap(find.text('Restore from a backup'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('backup-password')), 'wrong');
+    await tester.tap(find.text('OK'));
+    await settle(tester);
+    expect(find.text('Wrong backup password'), findsOneWidget);
+
+    await tester.tap(find.text('Restore from a backup'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('backup-password')),
+      'gold-and-fds',
+    );
+    await tester.tap(find.text('OK'));
+    await settle(tester);
+    expect(find.text('Restore 1 asset?'), findsOneWidget);
+    await tester.tap(find.text('Replace'));
+    await settle(tester);
+
+    await tester.pageBack();
+    await settle(tester);
+    expect(find.text('Coins'), findsOneWidget);
+  });
+
+  testWidgets('choosing a backup file does not lock the app', (tester) async {
+    await setUpPin(tester);
+    await tester.tap(find.byTooltip('Backup and restore'));
+    await tester.pumpAndSettle();
+
+    backupFiles.whilePicking = () {
+      for (final state in [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+    };
+    await tester.tap(find.text('Restore from a backup'));
+    await tester.pumpAndSettle();
+
+    // Nothing was saved, so the picker returns no file and nothing happens.
+    expect(find.text('Vault Nama is locked'), findsNothing);
+    expect(find.text('Backup and restore'), findsOneWidget);
   });
 }

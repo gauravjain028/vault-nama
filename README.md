@@ -16,13 +16,17 @@ Nothing leaves the phone. There is no server, account or network access.
 - Android cloud backup and screenshots are disabled.
 - Reminders are local notifications scheduled on the phone (a week before and
   on the day, at 9am). Their text is hidden on a locked screen.
+- Backups are `.vnbackup` files encrypted with AES-256-GCM, using a key
+  derived (PBKDF2-HMAC-SHA256) from a backup password you choose. You save the
+  file wherever you like; the app never uploads it. Restoring replaces the
+  app's data with the backup's.
 
 ## Roadmap
 
 1. App setup, encrypted storage and app lock ✅
 2. Add, edit and list each asset type with its own fields ✅
 3. Dashboard of totals by category, with reminders for premiums and FD maturity ✅
-4. Encrypted backup file export and restore
+4. Encrypted backup file export and restore ✅
 
 ## Development
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../backup/backup_screen.dart';
 import '../data/asset.dart';
 import '../data/asset_repository.dart';
 import '../data/summary.dart';
@@ -16,11 +17,13 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.reminders,
+    required this.backupTools,
     required this.onLock,
   });
 
   final AssetRepository repository;
   final Reminders reminders;
+  final BackupTools backupTools;
   final VoidCallback onLock;
 
   @override
@@ -56,6 +59,18 @@ class _HomeScreenState extends State<HomeScreen> {
     if (changed == true) _reload();
   }
 
+  Future<void> _openBackup() async {
+    final restored = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => BackupScreen(
+          repository: widget.repository,
+          tools: widget.backupTools,
+        ),
+      ),
+    );
+    if (restored == true) _reload();
+  }
+
   Future<void> _addAsset() async {
     final type = await showModalBottomSheet<AssetType>(
       context: context,
@@ -83,6 +98,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Vault Nama'),
         actions: [
+          IconButton(
+            tooltip: 'Backup and restore',
+            icon: const Icon(Icons.import_export),
+            onPressed: _openBackup,
+          ),
           IconButton(
             tooltip: 'Lock',
             icon: const Icon(Icons.lock_outline),

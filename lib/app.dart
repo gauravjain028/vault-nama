@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'backup/backup_screen.dart';
 import 'data/asset_repository.dart';
 import 'reminders/reminders.dart';
 import 'screens/home_screen.dart';
@@ -16,12 +17,14 @@ class VaultNamaApp extends StatefulWidget {
     required this.pinService,
     required this.biometrics,
     required this.reminders,
+    required this.backupTools,
     required this.openRepository,
   });
 
   final PinService pinService;
   final Biometrics biometrics;
   final Reminders reminders;
+  final BackupTools backupTools;
 
   /// Opens the encrypted database; called only after the user unlocks.
   final Future<AssetRepository> Function() openRepository;
@@ -57,7 +60,10 @@ class _VaultNamaAppState extends State<VaultNamaApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Lock as soon as the app leaves the foreground.
-    if (state == AppLifecycleState.paused && _state == _LockState.unlocked) {
+    // A file dialog the app opened itself doesn't count.
+    if (state == AppLifecycleState.paused &&
+        _state == _LockState.unlocked &&
+        !widget.backupTools.autoLock.suspended) {
       _lock();
     }
   }
@@ -120,6 +126,7 @@ class _VaultNamaAppState extends State<VaultNamaApp>
         _LockState.unlocked => HomeScreen(
           repository: _repository!,
           reminders: widget.reminders,
+          backupTools: widget.backupTools,
           onLock: _lock,
         ),
       },

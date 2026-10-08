@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:vault_nama/backup/backup_files.dart';
 import 'package:vault_nama/data/asset.dart';
 import 'package:vault_nama/reminders/reminders.dart';
 import 'package:vault_nama/security/biometrics.dart';
@@ -34,4 +37,26 @@ class FakeReminders implements Reminders {
 
   @override
   Future<void> reschedule(List<Asset> assets) async => lastScheduled = assets;
+}
+
+/// Keeps "saved" backups in memory; [pick] returns the last one saved.
+class FakeBackupFiles implements BackupFiles {
+  Uint8List? saved;
+  String? savedName;
+
+  /// Runs while the "dialog" is open, e.g. to send the app to background.
+  void Function()? whilePicking;
+
+  @override
+  Future<bool> save(String fileName, Uint8List bytes) async {
+    savedName = fileName;
+    saved = bytes;
+    return true;
+  }
+
+  @override
+  Future<Uint8List?> pick() async {
+    whilePicking?.call();
+    return saved;
+  }
 }

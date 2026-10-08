@@ -52,7 +52,7 @@ class Asset {
   };
 
   factory Asset.fromRow(Map<String, Object?> row) => Asset(
-    id: row['id'] as int,
+    id: row['id'] as int?,
     type: AssetType.values.asNameMap()[row['type']] ?? AssetType.other,
     name: row['name'] as String,
     valuePaise: row['value_paise'] as int,

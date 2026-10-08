@@ -53,5 +53,13 @@ class AssetRepository {
   Future<void> delete(int id) =>
       _db.delete('assets', where: 'id = ?', whereArgs: [id]);
 
+  /// Replaces every asset with [assets], all or nothing.
+  Future<void> replaceAll(List<Asset> assets) => _db.transaction((txn) async {
+    await txn.delete('assets');
+    for (final asset in assets) {
+      await txn.insert('assets', asset.toRow());
+    }
+  });
+
   Future<void> close() => _db.close();
 }
