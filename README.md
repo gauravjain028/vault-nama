@@ -6,6 +6,15 @@ bank accounts and real estate.
 
 Nothing leaves the phone. There is no server, account or network access.
 
+## Screens
+
+| Overview | Assets | Reminders |
+|---|---|---|
+| ![Overview](tool/screenshots/1-overview.png) | ![Assets](tool/screenshots/3-assets.png) | ![Reminders](tool/screenshots/4-reminders.png) |
+
+Screenshots use sample data and are regenerated with
+`flutter test tool/screenshots_test.dart --update-goldens`.
+
 ## Security
 
 - Data is stored in a SQLCipher-encrypted SQLite database.

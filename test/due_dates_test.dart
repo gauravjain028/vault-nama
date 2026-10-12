@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vault_nama/data/asset.dart';
+import 'package:vault_nama/data/cash_flow.dart';
 import 'package:vault_nama/data/summary.dart';
 import 'package:vault_nama/reminders/due_dates.dart';
 import 'package:vault_nama/reminders/reminders.dart';
@@ -99,17 +100,35 @@ void main() {
     final summary = AssetSummary([
       _asset(AssetType.fixedDeposit, {}, valuePaise: 500),
       _asset(AssetType.fixedDeposit, {}, valuePaise: 300),
-      _asset(AssetType.gold, {}, valuePaise: 1000),
+      _asset(AssetType.metal, {}, valuePaise: 1000),
       _asset(AssetType.lifeInsurance, {'sumAssured': 7000}),
       _asset(AssetType.termInsurance, {'coverAmount': 3000}),
       _asset(AssetType.healthInsurance, {'coverAmount': 2000}),
     ]);
     expect(summary.netWorthPaise, 1800);
     expect(summary.ranked.map((e) => (e.key, e.value)), [
-      (AssetType.gold, 1000),
+      (AssetType.metal, 1000),
       (AssetType.fixedDeposit, 800),
     ]);
     expect(summary.lifeCoverPaise, 10000);
     expect(summary.healthCoverPaise, 2000);
+  });
+
+  test('premiums are totalled per month for the next year', () {
+    final lic = _asset(AssetType.lifeInsurance, {
+      'nextPremiumDue': '2026-11-10',
+      'premiumFrequency': 'Half-yearly',
+      'premium': 1200000,
+    });
+    final health = _asset(AssetType.healthInsurance, {
+      'renewalDate': '2027-02-01',
+      'premium': 2500000,
+    });
+    final months = premiumsByMonth([lic, health], today: today);
+    expect(months, hasLength(12));
+    expect(months[1], 1200000); // Nov 2026
+    expect(months[4], 2500000); // Feb 2027
+    expect(months[7], 1200000); // May 2027
+    expect(months.fold(0, (a, b) => a + b), 4900000);
   });
 }

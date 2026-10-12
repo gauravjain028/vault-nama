@@ -5,8 +5,7 @@ enum AssetType {
   lifeInsurance('LIC / life insurance'),
   healthInsurance('Health insurance'),
   termInsurance('Term insurance'),
-  gold('Gold'),
-  silver('Silver'),
+  metal('Gold, silver & metals'),
   fixedDeposit('Fixed deposit'),
   bankAccount('Bank account'),
   realEstate('Real estate'),
@@ -51,14 +50,27 @@ class Asset {
     'updated_at': updatedAt.millisecondsSinceEpoch,
   };
 
-  factory Asset.fromRow(Map<String, Object?> row) => Asset(
-    id: row['id'] as int?,
-    type: AssetType.values.asNameMap()[row['type']] ?? AssetType.other,
-    name: row['name'] as String,
-    valuePaise: row['value_paise'] as int,
-    details: (jsonDecode(row['details'] as String) as Map)
-        .cast<String, Object?>(),
-    createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
-    updatedAt: DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int),
-  );
+  factory Asset.fromRow(Map<String, Object?> row) {
+    var typeName = row['type'] as String;
+    final details = (jsonDecode(row['details'] as String) as Map)
+        .cast<String, Object?>();
+    // Gold and silver used to be separate types; now they are one "metal"
+    // type with the metal named in its details. Older databases and backups
+    // still say "gold" or "silver".
+    if (_legacyMetals[typeName] case final metal?) {
+      typeName = AssetType.metal.name;
+      details['metal'] ??= metal;
+    }
+    return Asset(
+      id: row['id'] as int?,
+      type: AssetType.values.asNameMap()[typeName] ?? AssetType.other,
+      name: row['name'] as String,
+      valuePaise: row['value_paise'] as int,
+      details: details,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int),
+    );
+  }
+
+  static const _legacyMetals = {'gold': 'Gold', 'silver': 'Silver'};
 }

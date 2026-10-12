@@ -71,7 +71,26 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  void phoneSize(WidgetTester tester) {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+  }
+
+  Future<void> openTab(WidgetTester tester, String label) async {
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text(label),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  const welcome = 'Your assets, in one private place';
+
   Future<void> setUpPin(WidgetTester tester) async {
+    phoneSize(tester);
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     await enterPin(tester, '2468', 'Next');
@@ -88,6 +107,7 @@ void main() {
   testWidgets('first launch sets a PIN, then locks and unlocks', (
     tester,
   ) async {
+    phoneSize(tester);
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
     expect(find.text('Choose a PIN'), findsOneWidget);
@@ -95,7 +115,7 @@ void main() {
     await enterPin(tester, '2468', 'Next');
     expect(find.text('Confirm your PIN'), findsOneWidget);
     await enterPin(tester, '2468', 'Set PIN');
-    expect(find.textContaining('No assets yet'), findsOneWidget);
+    expect(find.text(welcome), findsOneWidget);
 
     await tester.tap(find.byTooltip('Lock'));
     await tester.pumpAndSettle();
@@ -105,7 +125,7 @@ void main() {
     expect(find.text('Wrong PIN'), findsOneWidget);
 
     await enterPin(tester, '2468', 'Unlock');
-    expect(find.textContaining('No assets yet'), findsOneWidget);
+    expect(find.text(welcome), findsOneWidget);
   });
 
   testWidgets('mismatched confirmation starts PIN setup again', (tester) async {
@@ -118,16 +138,13 @@ void main() {
   });
 
   testWidgets('adds, edits and deletes a fixed deposit', (tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 2.5;
-    addTearDown(tester.view.reset);
     await setUpPin(tester);
 
-    await tester.tap(find.text('Add asset'));
+    await tester.tap(find.text('Add your first asset'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Fixed deposit'));
     await tester.pumpAndSettle();
-    expect(find.text('Add Fixed deposit'), findsOneWidget);
+    expect(find.text('Add asset'), findsOneWidget);
 
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
@@ -135,6 +152,8 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('asset-name')), 'SBI FD');
     await tester.enterText(find.byKey(const Key('asset-value')), '1,50,000');
+    await tester.pump();
+    expect(find.text('1.5 lakh'), findsOneWidget);
     await tester.enterText(
       find.descendant(
         of: find.byKey(const Key('field-bank')),
@@ -152,23 +171,33 @@ void main() {
     await tester.tap(find.text('Save'));
     await settle(tester);
 
-    expect(find.text('SBI FD'), findsOneWidget);
-    // In the list, the net-worth headline and the category bar.
-    expect(find.text('₹1,50,000.00'), findsNWidgets(3));
+    // Back on the overview.
     expect(
       tester.widget<Text>(find.byKey(const Key('net-worth'))).data,
-      '₹1,50,000.00',
+      '₹1,50,000',
     );
+    expect(find.text('Where your money is'), findsOneWidget);
     expect(reminders.lastScheduled?.single.name, 'SBI FD');
+
+    await openTab(tester, 'Assets');
+    expect(find.text('SBI FD'), findsOneWidget);
     expect(find.text('SBI · 7.1%'), findsOneWidget);
 
     await tester.tap(find.text('SBI FD'));
     await tester.pumpAndSettle();
-    expect(find.text('Edit Fixed deposit'), findsOneWidget);
+    expect(find.text('Edit asset'), findsOneWidget);
     expect(find.text('7.1'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('asset-name')), 'SBI FD 2');
     await tester.tap(find.text('Save'));
     await settle(tester);
+    expect(find.text('SBI FD 2'), findsOneWidget);
+
+    // Search narrows the list.
+    await tester.enterText(find.byKey(const Key('asset-search')), 'hdfc');
+    await tester.pump();
+    expect(find.text('Nothing matches your search.'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('asset-search')), 'sbi');
+    await tester.pump();
     expect(find.text('SBI FD 2'), findsOneWidget);
 
     await tester.tap(find.text('SBI FD 2'));
@@ -180,13 +209,31 @@ void main() {
     expect(find.textContaining('No assets yet'), findsOneWidget);
   });
 
+  testWidgets('any metal can be added with a suggestion', (tester) async {
+    await setUpPin(tester);
+    await tester.tap(find.text('Add asset'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gold, silver & metals'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('asset-name')), 'Coin');
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Platinum'));
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+
+    await openTab(tester, 'Assets');
+    expect(find.text('Platinum'), findsOneWidget);
+  });
+
   testWidgets('locking closes an open form', (tester) async {
     await setUpPin(tester);
     await tester.tap(find.text('Add asset'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Gold'));
+    await tester.tap(find.text('Gold, silver & metals'));
     await tester.pumpAndSettle();
-    expect(find.text('Add Gold'), findsOneWidget);
+    expect(find.text('Add asset'), findsWidgets);
+    expect(find.text('Save'), findsOneWidget);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
@@ -198,15 +245,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Vault Nama is locked'), findsOneWidget);
-    expect(find.text('Add Gold'), findsNothing);
+    expect(find.text('Save'), findsNothing);
   });
 
   testWidgets('saves a backup and restores it', (tester) async {
-    seed = [Asset(type: AssetType.gold, name: 'Coins', valuePaise: 2500000)];
+    seed = [Asset(type: AssetType.metal, name: 'Coins', valuePaise: 2500000)];
     await setUpPin(tester);
+    await openTab(tester, 'Assets');
     expect(find.text('Coins'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Backup and restore'));
+    await openTab(tester, 'Settings');
+    await tester.tap(find.text('Backup and restore'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save a backup'));
     await tester.pumpAndSettle();
@@ -257,12 +306,14 @@ void main() {
 
     await tester.pageBack();
     await settle(tester);
+    await openTab(tester, 'Assets');
     expect(find.text('Coins'), findsOneWidget);
   });
 
   testWidgets('choosing a backup file does not lock the app', (tester) async {
     await setUpPin(tester);
-    await tester.tap(find.byTooltip('Backup and restore'));
+    await openTab(tester, 'Settings');
+    await tester.tap(find.text('Backup and restore'));
     await tester.pumpAndSettle();
 
     backupFiles.whilePicking = () {

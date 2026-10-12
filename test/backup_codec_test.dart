@@ -16,7 +16,7 @@ void main() {
       createdAt: DateTime(2026, 1, 2),
       updatedAt: DateTime(2026, 3, 4),
     ),
-    Asset(type: AssetType.gold, name: 'Coins', details: {'weightGrams': 20.0}),
+    Asset(type: AssetType.metal, name: 'Coins', details: {'weightGrams': 20.0}),
   ];
 
   test('round-trips assets with the right password', () async {

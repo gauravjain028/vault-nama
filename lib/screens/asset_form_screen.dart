@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../data/asset.dart';
 import '../data/asset_fields.dart';
 import '../data/asset_repository.dart';
+import '../ui/theme.dart';
 import '../util/money.dart';
 
 final _storedDate = DateFormat('yyyy-MM-dd');
@@ -63,6 +64,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
             text: stored == null ? '' : _trimNumber(stored as num),
           );
         case FieldKind.text:
+        case FieldKind.suggest:
           _controllers[field.key] = TextEditingController(
             text: stored as String?,
           );
@@ -92,7 +94,8 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
         FieldKind.number => double.tryParse(
           _controllers[field.key]!.text.trim(),
         ),
-        FieldKind.text => _controllers[field.key]!.text.trim(),
+        FieldKind.text ||
+        FieldKind.suggest => _controllers[field.key]!.text.trim(),
       };
       if (value != null && value != '') details[field.key] = value;
     }
@@ -151,6 +154,52 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     return double.tryParse(input.trim()) == null ? 'Enter a number' : null;
   }
 
+  /// Rupee input that spells out the amount (e.g. "1.5 lakh") as you type.
+  Widget _moneyField(
+    TextEditingController controller,
+    String label, {
+    Key? key,
+  }) => ValueListenableBuilder(
+    valueListenable: controller,
+    builder: (context, value, _) {
+      final paise = parseRupees(value.text);
+      return TextFormField(
+        key: key,
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixText: '₹ ',
+          helperText: paise == null ? null : amountInWords(paise),
+        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        validator: _validateMoney,
+      );
+    },
+  );
+
+  /// Groups fields into sections by kind: details, amounts, dates, notes.
+  List<(String, List<FieldSpec>)> _sections() {
+    final details = <FieldSpec>[],
+        amounts = <FieldSpec>[],
+        dates = <FieldSpec>[];
+    for (final f in _form.fields) {
+      switch (f.kind) {
+        case FieldKind.money:
+          amounts.add(f);
+        case FieldKind.date:
+          dates.add(f);
+        default:
+          details.add(f);
+      }
+    }
+    return [
+      ('Details', details),
+      ('Amounts', amounts),
+      ('Important dates', dates),
+      ('Notes', [notesField]),
+    ].where((s) => s.$2.isNotEmpty).toList();
+  }
+
   Widget _buildField(FieldSpec field) {
     switch (field.kind) {
       case FieldKind.text:
@@ -171,11 +220,34 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
           validator: _validateNumber,
         );
       case FieldKind.money:
-        return TextFormField(
-          controller: _controllers[field.key],
-          decoration: InputDecoration(labelText: field.label, prefixText: '₹ '),
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          validator: _validateMoney,
+        return _moneyField(_controllers[field.key]!, field.label);
+      case FieldKind.suggest:
+        final controller = _controllers[field.key]!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextFormField(
+              controller: controller,
+              decoration: InputDecoration(labelText: field.label),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 8),
+            ValueListenableBuilder(
+              valueListenable: controller,
+              builder: (context, value, _) => Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final option in field.options)
+                    ChoiceChip(
+                      label: Text(option),
+                      selected: value.text.trim() == option,
+                      onSelected: (_) => controller.text = option,
+                    ),
+                ],
+              ),
+            ),
+          ],
         );
       case FieldKind.choice:
         final current = _picked[field.key];
@@ -226,9 +298,7 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
     final editing = widget.existing != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          editing ? 'Edit ${widget.type.label}' : 'Add ${widget.type.label}',
-        ),
+        title: Text(editing ? 'Edit asset' : 'Add asset'),
         actions: [
           if (editing)
             IconButton(
@@ -238,43 +308,76 @@ class _AssetFormScreenState extends State<AssetFormScreen> {
             ),
         ],
       ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: FilledButton(
+            onPressed: _save,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+            ),
+            child: const Text('Save'),
+          ),
+        ),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           children: [
-            TextFormField(
-              key: const Key('asset-name'),
-              controller: _name,
-              decoration: InputDecoration(labelText: _form.namePrompt),
-              textCapitalization: TextCapitalization.words,
-              validator: (input) =>
-                  input == null || input.trim().isEmpty ? 'Required' : null,
+            Row(
+              children: [
+                CategoryAvatar(widget.type, size: 48),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.type.label,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
             ),
-            if (_form.valueLabel != null) ...[
+            const SizedBox(height: 16),
+            SectionCard(
+              child: Column(
+                children: [
+                  TextFormField(
+                    key: const Key('asset-name'),
+                    controller: _name,
+                    decoration: InputDecoration(labelText: _form.namePrompt),
+                    textCapitalization: TextCapitalization.words,
+                    validator: (input) => input == null || input.trim().isEmpty
+                        ? 'Required'
+                        : null,
+                  ),
+                  if (_form.valueLabel != null) ...[
+                    const SizedBox(height: 12),
+                    _moneyField(
+                      _value,
+                      _form.valueLabel!,
+                      key: const Key('asset-value'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            for (final (title, fields) in _sections()) ...[
               const SizedBox(height: 12),
-              TextFormField(
-                key: const Key('asset-value'),
-                controller: _value,
-                decoration: InputDecoration(
-                  labelText: _form.valueLabel,
-                  prefixText: '₹ ',
+              SectionCard(
+                title: title,
+                child: Column(
+                  children: [
+                    for (final (i, field) in fields.indexed) ...[
+                      if (i > 0) const SizedBox(height: 12),
+                      KeyedSubtree(
+                        key: Key('field-${field.key}'),
+                        child: _buildField(field),
+                      ),
+                    ],
+                  ],
                 ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: _validateMoney,
               ),
             ],
-            for (final field in _fields) ...[
-              const SizedBox(height: 12),
-              KeyedSubtree(
-                key: Key('field-${field.key}'),
-                child: _buildField(field),
-              ),
-            ],
-            const SizedBox(height: 24),
-            FilledButton(onPressed: _save, child: const Text('Save')),
           ],
         ),
       ),

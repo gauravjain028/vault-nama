@@ -76,8 +76,7 @@ List<DueEvent> dueEvents(
         add(asset, 'Renewal due', d['renewalDate'], everyMonths: 12);
       case AssetType.fixedDeposit:
         add(asset, 'FD matures', d['maturityDate']);
-      case AssetType.gold:
-      case AssetType.silver:
+      case AssetType.metal:
       case AssetType.bankAccount:
       case AssetType.realEstate:
       case AssetType.other:

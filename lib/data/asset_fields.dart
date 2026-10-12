@@ -1,6 +1,15 @@
 import 'asset.dart';
 
-enum FieldKind { text, number, money, date, choice }
+enum FieldKind {
+  text,
+  number,
+  money,
+  date,
+  choice,
+
+  /// Free text with tappable suggestions from [FieldSpec.options].
+  suggest,
+}
 
 /// One type-specific field, stored in [Asset.details] under [key].
 /// Money is stored in paise (int), dates as yyyy-MM-dd strings, numbers as
@@ -47,6 +56,12 @@ const _premiumFrequency = FieldSpec(
 const _nominee = FieldSpec('nominee', 'Nominee', FieldKind.text);
 
 const _metalFields = [
+  FieldSpec(
+    'metal',
+    'Metal',
+    FieldKind.suggest,
+    options: ['Gold', 'Silver', 'Platinum', 'Palladium', 'Copper'],
+  ),
   FieldSpec(
     'form',
     'Form',
@@ -98,12 +113,7 @@ const assetForms = <AssetType, AssetForm>{
       _nominee,
     ],
   ),
-  AssetType.gold: AssetForm(
-    namePrompt: 'Description',
-    valueLabel: 'Current value',
-    fields: _metalFields,
-  ),
-  AssetType.silver: AssetForm(
+  AssetType.metal: AssetForm(
     namePrompt: 'Description',
     valueLabel: 'Current value',
     fields: _metalFields,

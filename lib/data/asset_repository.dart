@@ -3,7 +3,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart' as cipher;
 
 import 'asset.dart';
 
-const schemaVersion = 1;
+const schemaVersion = 2;
 
 Future<void> createSchema(cipher.Database db, int version) async {
   await db.execute('''
@@ -20,6 +20,26 @@ Future<void> createSchema(cipher.Database db, int version) async {
   await db.execute('CREATE INDEX assets_type ON assets(type)');
 }
 
+/// Version 2 merged the gold and silver types into one metal type.
+Future<void> upgradeSchema(
+  cipher.Database db,
+  int oldVersion,
+  int newVersion,
+) async {
+  if (oldVersion < 2) {
+    final rows = await db.query('assets', where: "type IN ('gold', 'silver')");
+    for (final row in rows) {
+      // fromRow converts the legacy type; write it back in the new form.
+      await db.update(
+        'assets',
+        Asset.fromRow(row).toRow(),
+        where: 'id = ?',
+        whereArgs: [row['id']],
+      );
+    }
+  }
+}
+
 /// Opens the SQLCipher-encrypted database on the device.
 Future<cipher.Database> openEncryptedDatabase(String key) async {
   final path = p.join(await cipher.getDatabasesPath(), 'vault_nama.db');
@@ -28,6 +48,7 @@ Future<cipher.Database> openEncryptedDatabase(String key) async {
     password: key,
     version: schemaVersion,
     onCreate: createSchema,
+    onUpgrade: upgradeSchema,
   );
 }
 

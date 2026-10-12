@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'backup/backup_screen.dart';
 import 'data/asset_repository.dart';
 import 'reminders/reminders.dart';
-import 'screens/home_screen.dart';
+import 'screens/home_shell.dart';
+import 'ui/theme.dart';
 import 'screens/lock_screen.dart';
 import 'screens/pin_setup_screen.dart';
 import 'security/biometrics.dart';
@@ -96,15 +97,8 @@ class _VaultNamaAppState extends State<VaultNamaApp>
     return MaterialApp(
       navigatorKey: _navigatorKey,
       title: 'Vault Nama',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.teal,
-          brightness: Brightness.dark,
-        ),
-      ),
+      theme: buildTheme(Brightness.light),
+      darkTheme: buildTheme(Brightness.dark),
       home: switch (_state) {
         _LockState.loading => const Scaffold(
           body: Center(child: CircularProgressIndicator()),
@@ -123,7 +117,7 @@ class _VaultNamaAppState extends State<VaultNamaApp>
           },
           onBiometric: _biometricsAvailable ? _unlockWithBiometrics : null,
         ),
-        _LockState.unlocked => HomeScreen(
+        _LockState.unlocked => HomeShell(
           repository: _repository!,
           reminders: widget.reminders,
           backupTools: widget.backupTools,

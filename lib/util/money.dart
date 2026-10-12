@@ -6,8 +6,17 @@ final _rupees = NumberFormat.currency(
   decimalDigits: 2,
 );
 
-/// Formats paise as rupees with Indian digit grouping, e.g. ₹1,23,456.00.
-String formatPaise(int paise) => _rupees.format(paise / 100);
+final _wholeRupees = NumberFormat.currency(
+  locale: 'en_IN',
+  symbol: '₹',
+  decimalDigits: 0,
+);
+
+/// Formats paise as rupees with Indian digit grouping, e.g. ₹1,23,456 or
+/// ₹1,23,456.50; whole amounts drop the paise.
+String formatPaise(int paise) => paise % 100 == 0
+    ? _wholeRupees.format(paise ~/ 100)
+    : _rupees.format(paise / 100);
 
 /// Parses a rupee amount typed by the user ("1,23,456.5", "₹ 500") into
 /// paise. Returns null for anything that isn't a non-negative amount with at
@@ -28,4 +37,30 @@ String paiseToInput(int paise) {
   return fraction == 0
       ? '$whole'
       : '$whole.${fraction.toString().padLeft(2, '0')}';
+}
+
+/// Short rupee amount for chart labels and hints: ₹850, ₹45.5K, ₹1.5L,
+/// ₹2.35Cr (Indian lakh and crore).
+String formatCompact(int paise) {
+  final rupees = paise / 100;
+  String trim(double v) {
+    final s = v.toStringAsFixed(v >= 100 ? 0 : (v >= 10 ? 1 : 2));
+    return s.contains('.') ? s.replaceFirst(RegExp(r'\.?0+$'), '') : s;
+  }
+
+  if (rupees >= 1e7) return '₹${trim(rupees / 1e7)}Cr';
+  if (rupees >= 1e5) return '₹${trim(rupees / 1e5)}L';
+  if (rupees >= 1e3) return '₹${trim(rupees / 1e3)}K';
+  return '₹${rupees.round()}';
+}
+
+/// The amount in words, e.g. "1.5 lakh", "2.35 crore"; null under ₹1,000.
+String? amountInWords(int paise) {
+  final rupees = paise / 100;
+  String trim(double v) =>
+      v.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+  if (rupees >= 1e7) return '${trim(rupees / 1e7)} crore';
+  if (rupees >= 1e5) return '${trim(rupees / 1e5)} lakh';
+  if (rupees >= 1e3) return '${trim(rupees / 1e3)} thousand';
+  return null;
 }
